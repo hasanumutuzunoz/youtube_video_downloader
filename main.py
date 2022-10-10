@@ -5,7 +5,11 @@ def download():
     # Capture the link (url) and locate it from YouTube
     url = YouTube(str(link.get()))
     # Capture the streams available i.e. 360p, 720p, 1080p. etc.
-    video = url.streams.first()
+    video = url.streams\
+        .filter(progressive=True, file_extension='mp4')\
+        .order_by('resolution')\
+        .desc()\
+        .first()
     # Download the video
     video.download()
     Label(root, text="Downloaded", font="ariel 15").place(x=100, y=120)
