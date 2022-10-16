@@ -9,9 +9,38 @@ import urllib.request
 from io import BytesIO
 from urllib.request import urlopen
 
+"""
+THINGS TO DO
+* Combine audio and video to download higher resolutions 
+* Erase downloaded label when paste link, click download
+* Get 240p and 480p, they are missing
+* Create threads to run simultaneously to fix freeze problem when paste link and getting data
+* Create grids instead of paste for all objects
+"""
+
+# Global Variables
 percentage_of_completion = 0
 is_pasted = False
 is_selected = False
+get_video = None
+
+
+def paste_link_thread():
+    root.bind_all("<<Paste>>", paste_link)
+
+
+def fetch_data_pb():
+    """
+    while True:
+        print("Test")
+        if not fetch_data:
+            break
+    """
+    """
+    fetch_pb = ttk.Progressbar(root, orient='horizontal', mode='indeterminate', length=280)
+    fetch_pb.place(x=200, y=165)
+    fetch_pb.start()
+    """
 
 
 # PASTE LINK function - get streams
@@ -34,15 +63,26 @@ def paste_link(a):
     thumbnail.image = image # Save reference to image
     thumbnail.config(image=image)
 
-    # Get only Resolutions
-    resolutions = [stream.resolution for stream in yt.streams.filter(progressive=True)]
-    # Resolutions Options Menu
-    menu = OptionMenu(root, variable, *resolutions)
+    # Place select menu
+    def get_stream(is_video):
+        global get_video
+        if is_video: # Set Video menu
+            streams = [stream.resolution for stream in yt.streams.filter(progressive=True)]
+            variable.set("Select Video")
+            get_video = True
 
-    # PLACE THE RES MENU (once) if the link not pasted
+        else: # Set Audio menu
+            streams = [stream.abr for stream in yt.streams.filter(only_audio=True).order_by('abr')]
+            variable.set("Select Audio")
+            get_video = False
+
+        menu = OptionMenu(root, variable, *streams)
+        menu.place(x=500, y=330)
+
     if not globals()["is_pasted"]:
-        menu.place(x=500, y=250)
-        #w.grid(column=1, row=0, columnspan=2, padx=100, pady=200)
+        # Get video and audio buttons that brings options menu
+        Button(root, text='Get Video', font='san-serif 16 bold', bg='grey', padx=2, command=lambda: get_stream(True)).place(x=400, y=250)
+        Button(root, text='Get Audio', font='san-serif 16 bold', bg='grey', padx=2, command=lambda: get_stream(False)).place(x=600, y=250)
         globals()["is_pasted"] = True
 
 
@@ -51,11 +91,11 @@ def callback(*args):
     #print(f"the variable has changed to '{variable.get()}'")
     if not globals()["is_selected"]:
         # Percentage Label
-        value_label.place(x=480, y=330)
+        value_label.place(x=480, y=400)
         # Progress Bar
-        pb.place(x=400, y=350)
+        pb.place(x=400, y=420)
         # Download button
-        Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=400)
+        Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
         globals()["is_selected"] = True
 
 
@@ -67,18 +107,19 @@ def download():
     # On Progress Function
     yt.register_on_progress_callback(on_progress)
 
-    # Video = get the stream which we clicked resolution
-    video = yt.streams.filter(res=variable.get()).first()
+    # Get video or audio
+    if get_video:
+        stream = yt.streams.filter(res=variable.get()).first()
+    else:
+        stream = yt.streams.filter(abr=variable.get()).first()
+
+    stream.download()
+    Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)
+
         #.filter(progressive=True, file_extension='mp4')
         #.order_by('resolution')\
         #.desc()\
         #.first()
-
-    # Download the video
-    video.download()
-
-    Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)
-
 
 # On Progress Function
 def on_progress(stream, chunk, bytes_remaining):
@@ -103,7 +144,9 @@ link = StringVar()
 Label(root, text="Paste your link here", font='san-serif 17 bold').place(x=280, y=90)
 Entry(root, width=90, textvariable=link).place(x=130, y=130)  # Link Entry
 
-# Run paste_link() when paste the link
+# Thread(target=fetch_data_pb).start() # Fetch Data Thread
+
+# Paste_link() run when paste the link
 variable = StringVar(root)
 root.bind_all("<<Paste>>", paste_link)
 
@@ -116,7 +159,6 @@ thumbnail = tk.Label(width=320, height=240)
 thumbnail.place(x=10, y=250)
 
 # Set default variable and trace each menu select
-variable.set("Select Resolution")
 variable.trace("w", callback)
 
 # Progress Bar
