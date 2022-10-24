@@ -12,10 +12,10 @@ from urllib.request import urlopen
 import ffmpeg
 import re
 import os
+import threading
 
 """
 THINGS TO DO
-
 * Progress bar for compiling audio and video
 * Erase downloaded label when paste link, click download
 * Get and paste video Author, Published date, number of views, length
@@ -28,40 +28,20 @@ percentage_of_completion = 0
 is_selected = False
 get_video = False
 
-"""
-def paste_link_thread():
-    root.bind_all("<<Paste>>", paste_link)
 
-
-def fetch_data_pb():
-    
-    while True:
-        print("Test")
-        if not fetch_data:
-            break
-  
-    
-    fetch_pb = ttk.Progressbar(root, orient='horizontal', mode='indeterminate', length=280)
-    fetch_pb.place(x=200, y=165)
-    fetch_pb.start()
-    
-"""
-
-
-# PASTE LINK function - get streams
-def paste_link(a):
-    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Videos')
-    print("The Desktop path is: " + desktop)
-    desktop = desktop + "\last_video.mp4"
-    path = re.sub(r'\\', '/', desktop)
-    print(path)
-
-    # Capture the link (url) and locate it from YouTube
+def loading():
     yt = YouTube(str(link.get()))
+
+    # Place indeterminate progress bar
+    pb_indeterminate.place(x=200, y=200)
+    pb_indeterminate.start()
+    # Place fetching data string
+    fetch_str.place(x=200, y=180)
 
     # Set the video title
     # Configurate the label (not place)
     title = yt.streams.first().title
+    print("test thread finished!!!!!!!")
     video_title.config(text=title)
 
     # Display Thumbnail
@@ -90,16 +70,32 @@ def paste_link(a):
             variable.set("Select Audio")
             get_video = False
 
+        # Set menu options to streams
         menu = OptionMenu(root, variable, *streams)
         menu.place(x=500, y=330)
 
     # Get video and audio buttons that brings options menu
-    Button(root, text='Get Video', font='san-serif 16 bold', bg='grey', padx=2, command=lambda: get_stream(True)).place(
-        x=400, y=250)
+    Button(root, text='Get Video', font='san-serif 16 bold', bg='grey', padx=2,
+           command=lambda: get_stream(True)).place(x=400, y=250)
     Button(root, text='Get Audio', font='san-serif 16 bold', bg='grey', padx=2,
            command=lambda: get_stream(False)).place(x=600, y=250)
 
-    root.update()
+    # Erase the indeterminate progress bar
+    pb_indeterminate.place_forget()
+    # Erase fetch data string
+    fetch_str.place_forget()
+
+
+# PASTE LINK function - get streams
+def paste_link(a):
+    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Videos')
+    print("The Desktop path is: " + desktop)
+    desktop = desktop + "\last_video.mp4"
+    path = re.sub(r'\\', '/', desktop)
+    print(path)
+
+    test_thread = threading.Thread(target=loading, daemon=True)
+    test_thread.start()
 
 
 # MENU ON CLICK
@@ -117,41 +113,38 @@ def callback(*args):
 
 # DOWNLOAD BUTTON
 def download():
-    yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
-    yt.register_on_progress_callback(on_progress)               # On Progress Function
+    yt = YouTube(str(link.get()))  # Capture the link (url) and locate it from YouTube
+    yt.register_on_progress_callback(on_progress)  # On Progress Function
 
     # Get video or audio
-    if get_video:                                               # Video
+    if get_video:  # Video
         stream = yt.streams.filter(res=variable.get()).first()  # Filter selected resolution from menu variable
-        title = yt.streams.first().title                        # Get video title
-        res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
-        #stream.download()                                       # Download video stream
+        title = yt.streams.first().title  # Get video title
+        res = int(re.sub(r'p', '', variable.get()))  # Remove "p" and convert to int (e.g. 1080p to 1080)
+        # stream.download()                                       # Download video stream
 
         # If video resolution is bigger than 720p
         # Combine video and audio files into one file
         # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
-        #if res > 720:
-        stream.download(filename="video.mp4")                                            # download video stream
-        video = ffmpeg.input("video.mp4")                                                # video file input
+        # if res > 720:
+        stream.download(filename="video.mp4")  # download video stream
+        video = ffmpeg.input("video.mp4")  # video file input
 
-        audio_stream = yt.streams.filter(only_audio=True).first()                        # get audio stream
-        audio_stream.download(filename="audio.mp4")                                      # download audio stream
-        audio = ffmpeg.input("audio.mp4")                                                # audio stream input
+        audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
+        audio_stream.download(filename="audio.mp4")  # download audio stream
+        audio = ffmpeg.input("audio.mp4")  # audio stream input
 
         downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get videos folder path
-        file = downloads_folder + "\\" + title + ".mp4"                                     # video file path in videos
-        path = re.sub(r'\\', '/', file)                                                  # change \ to / in path
+        file = downloads_folder + "\\" + title + ".mp4"  # video file path in videos
+        path = re.sub(r'\\', '/', file)  # change \ to / in path
 
         # COMBINE AUDIO AND VIDEO
         ffmpeg.output(audio, video, path).run()
-        # ffmpeg.output(audio, video, 'C:/Users/hasan/PycharmProjects/youtubeVideoDownloader/last_video.mp4').run()
-
 
     else:  # Audio
         stream = yt.streams.filter(abr=variable.get()).first()
         stream.download()
 
-    # stream.download()    # Download video stream
     Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)
 
     # .filter(progressive=True, file_extension='mp4')
@@ -182,7 +175,8 @@ link = StringVar()
 Label(root, text="Paste your link here", font='san-serif 17 bold').place(x=280, y=90)
 Entry(root, width=90, textvariable=link).place(x=130, y=130)  # Link Entry
 
-# Thread(target=fetch_data_pb).start() # Fetch Data Thread
+# Fetching data string
+fetch_str = Label(root, text='Loading Data...')
 
 # Paste_link() run when paste the link
 variable = StringVar(root)
@@ -201,6 +195,7 @@ variable.trace("w", callback)
 
 # Progress Bar
 pb = ttk.Progressbar(root, orient='horizontal', mode='determinate', length=280)
+pb_indeterminate = ttk.Progressbar(root, orient=HORIZONTAL, length=400, mode="indeterminate")
 
 # Percentage Label
 value_label = ttk.Label(root, text="Current Progress: 0.00%")
