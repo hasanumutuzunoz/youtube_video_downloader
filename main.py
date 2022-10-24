@@ -16,10 +16,9 @@ import threading
 
 """
 THINGS TO DO
-* Progress bar for compiling audio and video
+* Create threads to run simultaneously to fix freeze problem when paste link and getting data
 * Erase downloaded label when paste link, click download
 * Get and paste video Author, Published date, number of views, length
-* Create threads to run simultaneously to fix freeze problem when paste link and getting data
 * Create grids instead of paste for all objects
 """
 
@@ -29,14 +28,14 @@ is_selected = False
 get_video = False
 
 
-def loading():
-    yt = YouTube(str(link.get()))
-
+def loading_thread():
     # Place indeterminate progress bar
     pb_indeterminate.place(x=200, y=200)
     pb_indeterminate.start()
     # Place fetching data string
     fetch_str.place(x=200, y=180)
+
+    yt = YouTube(str(link.get()))
 
     # Set the video title
     # Configurate the label (not place)
@@ -74,6 +73,10 @@ def loading():
         menu = OptionMenu(root, variable, *streams)
         menu.place(x=500, y=330)
 
+        # Download button
+        Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
+        globals()["is_selected"] = True
+
     # Get video and audio buttons that brings options menu
     Button(root, text='Get Video', font='san-serif 16 bold', bg='grey', padx=2,
            command=lambda: get_stream(True)).place(x=400, y=250)
@@ -86,7 +89,7 @@ def loading():
     fetch_str.place_forget()
 
 
-# PASTE LINK function - get streams
+# PASTE LINK function - get streams start loading
 def paste_link(a):
     desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Videos')
     print("The Desktop path is: " + desktop)
@@ -94,10 +97,10 @@ def paste_link(a):
     path = re.sub(r'\\', '/', desktop)
     print(path)
 
-    test_thread = threading.Thread(target=loading, daemon=True)
-    test_thread.start()
+    loading = threading.Thread(target=loading_thread, daemon=True)
+    loading.start()
 
-
+"""
 # MENU ON CLICK
 def callback(*args):
     # print(f"the variable has changed to '{variable.get()}'")
@@ -109,48 +112,53 @@ def callback(*args):
         # Download button
         Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
         globals()["is_selected"] = True
+"""
 
 
-# DOWNLOAD BUTTON
-def download():
-    yt = YouTube(str(link.get()))  # Capture the link (url) and locate it from YouTube
-    yt.register_on_progress_callback(on_progress)  # On Progress Function
+def download_thread():
+    yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
+    yt.register_on_progress_callback(on_progress)               # On Progress Function
 
     # Get video or audio
-    if get_video:  # Video
+    if get_video:                                               # Video
         stream = yt.streams.filter(res=variable.get()).first()  # Filter selected resolution from menu variable
-        title = yt.streams.first().title  # Get video title
-        res = int(re.sub(r'p', '', variable.get()))  # Remove "p" and convert to int (e.g. 1080p to 1080)
-        # stream.download()                                       # Download video stream
+        title = yt.streams.first().title                        # Get video title
+        res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
 
-        # If video resolution is bigger than 720p
-        # Combine video and audio files into one file
+        # if res > 720:, Combine video and audio files into one file
         # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
-        # if res > 720:
-        stream.download(filename="video.mp4")  # download video stream
-        video = ffmpeg.input("video.mp4")  # video file input
+        stream.download(filename="video.mp4")                   # download video stream
+        video = ffmpeg.input("video.mp4")                       # video file input
 
         audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
-        audio_stream.download(filename="audio.mp4")  # download audio stream
-        audio = ffmpeg.input("audio.mp4")  # audio stream input
+        audio_stream.download(filename="audio.mp4")             # download audio stream
+        audio = ffmpeg.input("audio.mp4")                       # audio stream input
 
         downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get videos folder path
-        file = downloads_folder + "\\" + title + ".mp4"  # video file path in videos
-        path = re.sub(r'\\', '/', file)  # change \ to / in path
+        file = downloads_folder + "\\" + title + ".mp4"         # video file path in videos
+        path = re.sub(r'\\', '/', file)                         # change \ to / in path
 
-        # COMBINE AUDIO AND VIDEO
-        ffmpeg.output(audio, video, path).run()
+        ffmpeg.output(audio, video, path).run()                 # COMBINE AUDIO AND VIDEO
 
-    else:  # Audio
+    else:                                                       # Audio
         stream = yt.streams.filter(abr=variable.get()).first()
         stream.download()
 
-    Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)
-
+    Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)  # Paste downloaded on thumbnail
     # .filter(progressive=True, file_extension='mp4')
     # .order_by('resolution')\
     # .desc()\
     # .first()
+
+
+# DOWNLOAD BUTTON
+def download():
+    # Percentage Label
+    value_label.place(x=480, y=400)
+    # Progress Bar
+    pb.place(x=400, y=420)
+    # Start the download thread
+    threading.Thread(target=download_thread, daemon=True).start()
 
 
 # On Progress Function
@@ -191,7 +199,7 @@ thumbnail = tk.Label(width=320, height=240)
 thumbnail.place(x=10, y=250)
 
 # Set default variable and trace each menu select
-variable.trace("w", callback)
+#variable.trace("w", callback)
 
 # Progress Bar
 pb = ttk.Progressbar(root, orient='horizontal', mode='determinate', length=280)
