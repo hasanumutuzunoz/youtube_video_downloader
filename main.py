@@ -26,21 +26,27 @@ THINGS TO DO
 percentage_of_completion = 0
 is_selected = False
 get_video = False
+#yt = None
 
 
 def loading_thread():
+    global yt
+
+    # Erase other labels
+    downloaded_label.place_forget()
+    value_label.place_forget()
+
+    # Place loading data label
+    loading_data_label.place(x=200, y=520)
     # Place indeterminate progress bar
-    pb_indeterminate.place(x=200, y=200)
+    pb_indeterminate.place(x=200, y=550)
     pb_indeterminate.start()
-    # Place fetching data string
-    fetch_str.place(x=200, y=180)
 
     yt = YouTube(str(link.get()))
 
     # Set the video title
     # Configurate the label (not place)
     title = yt.streams.first().title
-    print("test thread finished!!!!!!!")
     video_title.config(text=title)
 
     # Display Thumbnail
@@ -85,8 +91,8 @@ def loading_thread():
 
     # Erase the indeterminate progress bar
     pb_indeterminate.place_forget()
-    # Erase fetch data string
-    fetch_str.place_forget()
+    # Erase loading data label
+    loading_data_label.place_forget()
 
 
 # PASTE LINK function - get streams start loading
@@ -116,12 +122,15 @@ def callback(*args):
 
 
 def download_thread():
-    yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
+    print("Download thread started")
+    #yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
     yt.register_on_progress_callback(on_progress)               # On Progress Function
+    downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get downloads folder path
 
     # Get video or audio
     if get_video:                                               # Video
         stream = yt.streams.filter(res=variable.get()).first()  # Filter selected resolution from menu variable
+        print("Download thread stream filtered ")
         title = yt.streams.first().title                        # Get video title
         res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
 
@@ -129,22 +138,39 @@ def download_thread():
         # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
         stream.download(filename="video.mp4")                   # download video stream
         video = ffmpeg.input("video.mp4")                       # video file input
-
         audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
         audio_stream.download(filename="audio.mp4")             # download audio stream
         audio = ffmpeg.input("audio.mp4")                       # audio stream input
 
-        downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get videos folder path
         file = downloads_folder + "\\" + title + ".mp4"         # video file path in videos
         path = re.sub(r'\\', '/', file)                         # change \ to / in path
 
-        ffmpeg.output(audio, video, path).run()                 # COMBINE AUDIO AND VIDEO
+        # Remove the progress bar
+        pb.place_forget()
+
+        # Place indeterminate progress bar for combining video
+        value_label.config(text="Processing final video...")
+        pb_indeterminate.config(length=280)
+        pb_indeterminate.place(x=400, y=420)
+        pb_indeterminate.start()
+
+        # COMBINE AUDIO AND VIDEO
+        ffmpeg.output(audio, video, path).run()
+
+        pb_indeterminate.place_forget()
+
+        # If the video name is too long, print shorter file location path
+        if len(file) > 50:
+            value_label.config(text="Download Finished! \n\n Location :\n" + file[0:50] + "...")
+        else:
+            value_label.config(text="Download Finished! \n\n Location :\n" + file)
 
     else:                                                       # Audio
         stream = yt.streams.filter(abr=variable.get()).first()
-        stream.download()
+        stream.download(downloads_folder)
 
-    Label(root, text="Downloaded", font="ariel 15", bg="green").place(x=200, y=250)  # Paste downloaded on thumbnail
+    downloaded_label.place(x=200, y=250)                        # Paste downloaded label on thumbnail
+    print("Download thread finished")
     # .filter(progressive=True, file_extension='mp4')
     # .order_by('resolution')\
     # .desc()\
@@ -180,11 +206,10 @@ root.resizable(0, 0)  # Makes the windows adjustable with its features
 root.title('YouTube Downloader')
 Label(root, text='Download YouTube videos for free', font='san-serif 14').place(x=250, y=30)
 link = StringVar()
+
 Label(root, text="Paste your link here", font='san-serif 17 bold').place(x=280, y=90)
 Entry(root, width=90, textvariable=link).place(x=130, y=130)  # Link Entry
 
-# Fetching data string
-fetch_str = Label(root, text='Loading Data...')
 
 # Paste_link() run when paste the link
 variable = StringVar(root)
@@ -208,4 +233,12 @@ pb_indeterminate = ttk.Progressbar(root, orient=HORIZONTAL, length=400, mode="in
 # Percentage Label
 value_label = ttk.Label(root, text="Current Progress: 0.00%")
 
+downloaded_label = Label(root, text="Downloaded", font="ariel 15", bg="green")
+
+loading_data_label = Label(root, text='Loading Data...')
+
 root.mainloop()
+
+
+
+
