@@ -55,23 +55,26 @@ def loading_thread():
     raw_data = u.read()
     u.close()
     image = Image.open(io.BytesIO(raw_data)).resize((320, 240))  # Resize the url image
-    image = ImageTk.PhotoImage(image)  # Convert the image to ImageTk
-    thumbnail.image = image  # Save reference to image
+    image = ImageTk.PhotoImage(image)                           # Convert the image to ImageTk
+    thumbnail.image = image                                     # Save reference to image
     thumbnail.config(image=image)
 
     # Select menu
     def get_stream(is_video):
         global get_video
-        if is_video:  # Set Video menu
-            streams = [stream.resolution for stream in
-                       yt.streams.filter(adaptive=True, file_extension='mp4', type='video')]
+        if is_video:                                            # Set Video menu
+            streams = [stream.resolution for stream in          # Get stream resolutions and remove None values
+                       yt.streams.filter(adaptive=True, file_extension='mp4', type='video')
+                       if stream.resolution is not None]
             # streams = [stream for stream in yt.streams.filter(adaptive=True, file_extension='mp4', type='video')]
+            streams = list(dict.fromkeys(streams))              # Remove the duplicates
             print(streams)
             variable.set("Select Video")
             get_video = True
 
-        else:  # Set Audio menu
+        else:                                                   # Set Audio menu
             streams = [stream.abr for stream in yt.streams.filter(only_audio=True).order_by('abr')]
+            streams.reverse()                                   # Reverse the list so the highest res will be on top
             variable.set("Select Audio")
             get_video = False
 
@@ -125,7 +128,8 @@ def download_thread():
     print("Download thread started")
     #yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
     yt.register_on_progress_callback(on_progress)               # On Progress Function
-    downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get downloads folder path
+    #downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get downloads folder path
+    get_directory = os.getcwd()  # Get current directory instead of downloads folder
 
     # Get video or audio
     if get_video:                                               # Video
@@ -141,8 +145,7 @@ def download_thread():
         audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
         audio_stream.download(filename="audio.mp4")             # download audio stream
         audio = ffmpeg.input("audio.mp4")                       # audio stream input
-
-        file = downloads_folder + "\\" + title + ".mp4"         # video file path in videos
+        file = get_directory + "\\" + title + ".mp4"         # video file path in videos
         path = re.sub(r'\\', '/', file)                         # change \ to / in path
 
         # Remove the progress bar
@@ -155,9 +158,12 @@ def download_thread():
         pb_indeterminate.start()
 
         # COMBINE AUDIO AND VIDEO
-        ffmpeg.output(audio, video, path).run()
+        ffmpeg.output(audio, video, path).run(overwrite_output=True)
 
-        pb_indeterminate.place_forget()
+        file_stats = os.stat(path)
+        print(file_stats)
+
+        pb_indeterminate.place_forget()  # Remove processing progress bar
 
         # If the video name is too long, print shorter file location path
         if len(file) > 50:
@@ -167,7 +173,7 @@ def download_thread():
 
     else:                                                       # Audio
         stream = yt.streams.filter(abr=variable.get()).first()
-        stream.download(downloads_folder)
+        stream.download(get_directory)
 
     downloaded_label.place(x=200, y=250)                        # Paste downloaded label on thumbnail
     print("Download thread finished")
