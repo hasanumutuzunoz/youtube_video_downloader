@@ -16,19 +16,28 @@ import threading
 
 """
 THINGS TO DO
-* Create threads to run simultaneously to fix freeze problem when paste link and getting data
-* Erase downloaded label when paste link, click download
-* Get and paste video Author, Published date, number of views, length
 * Create grids instead of paste for all objects
+* Add Pause, Stop, download buttons
 """
 
 # Global Variables
 percentage_of_completion = 0
-is_selected = False
 get_video = False
 #yt = None
 
 
+# PASTE LINK function - start loading_thread
+def paste_link(a):
+    #desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Videos')
+    #print("The Desktop path is: " + desktop)
+    #desktop = desktop + "\last_video.mp4"
+    #path = re.sub(r'\\', '/', desktop)
+    #print(path)
+    loading = threading.Thread(target=loading_thread, daemon=True)
+    loading.start()
+
+
+# Run with paste link
 def loading_thread():
     global yt
 
@@ -59,7 +68,7 @@ def loading_thread():
     thumbnail.image = image                                     # Save reference to image
     thumbnail.config(image=image)
 
-    # Select menu
+    # Select menu. Run when click the (get video / get audio) buttons
     def get_stream(is_video):
         global get_video
         if is_video:                                            # Set Video menu
@@ -82,11 +91,10 @@ def loading_thread():
         menu = OptionMenu(root, variable, *streams)
         menu.place(x=500, y=330)
 
-        # Download button
+        # PLACE BUTTON (Download)
         Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
-        globals()["is_selected"] = True
 
-    # Get video and audio buttons that brings options menu
+    # PLACE BUTTON (Get Video / Get Audio)
     Button(root, text='Get Video', font='san-serif 16 bold', bg='grey', padx=2,
            command=lambda: get_stream(True)).place(x=400, y=250)
     Button(root, text='Get Audio', font='san-serif 16 bold', bg='grey', padx=2,
@@ -98,53 +106,41 @@ def loading_thread():
     loading_data_label.place_forget()
 
 
-# PASTE LINK function - get streams start loading
-def paste_link(a):
-    desktop = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Videos')
-    print("The Desktop path is: " + desktop)
-    desktop = desktop + "\last_video.mp4"
-    path = re.sub(r'\\', '/', desktop)
-    print(path)
-
-    loading = threading.Thread(target=loading_thread, daemon=True)
-    loading.start()
-
-"""
-# MENU ON CLICK
-def callback(*args):
-    # print(f"the variable has changed to '{variable.get()}'")
-    if not globals()["is_selected"]:
-        # Percentage Label
-        value_label.place(x=480, y=400)
-        # Progress Bar
-        pb.place(x=400, y=420)
-        # Download button
-        Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
-        globals()["is_selected"] = True
-"""
+def processing_pb_thread(path):
+    file_stats = os.stat(path)
+    while True:
+        print(file_stats)
 
 
 def download_thread():
+    # Erase other labels
+    downloaded_label.place_forget()
+
+
     print("Download thread started")
     #yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
     yt.register_on_progress_callback(on_progress)               # On Progress Function
     #downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get downloads folder path
-    get_directory = os.getcwd()  # Get current directory instead of downloads folder
+    get_directory = os.getcwd()  # Get current directory folder
+    print(yt.streams)
 
     # Get video or audio
-    if get_video:                                               # Video
+    # VIDEO
+    if get_video:
+        value_label.config(text="")
         stream = yt.streams.filter(res=variable.get()).first()  # Filter selected resolution from menu variable
         print("Download thread stream filtered ")
         title = yt.streams.first().title                        # Get video title
         res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
 
-        # if res > 720:, Combine video and audio files into one file
-        # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
+                # if res > 720:, Combine video and audio files into one file
+                # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
+
         stream.download(filename="video.mp4")                   # download video stream
         video = ffmpeg.input("video.mp4")                       # video file input
         audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
-        audio_stream.download(filename="audio.mp4")             # download audio stream
-        audio = ffmpeg.input("audio.mp4")                       # audio stream input
+        audio_stream.download(filename="audio.wav")             # download audio stream
+        audio = ffmpeg.input("audio.wav")                       # audio stream input
         file = get_directory + "\\" + title + ".mp4"         # video file path in videos
         path = re.sub(r'\\', '/', file)                         # change \ to / in path
 
@@ -157,11 +153,11 @@ def download_thread():
         pb_indeterminate.place(x=400, y=420)
         pb_indeterminate.start()
 
-        # COMBINE AUDIO AND VIDEO
-        ffmpeg.output(audio, video, path).run(overwrite_output=True)
+        #processing_pb = threading.Thread(target=processing_pb_thread(path), daemon=True)
+        #processing_pb.start()
 
-        file_stats = os.stat(path)
-        print(file_stats)
+        # COMBINE AUDIO AND VIDEO
+        ffmpeg.output(audio, video, path, vcodec='copy', acodec='copy').run(overwrite_output=True)
 
         pb_indeterminate.place_forget()  # Remove processing progress bar
 
@@ -171,7 +167,8 @@ def download_thread():
         else:
             value_label.config(text="Download Finished! \n\n Location :\n" + file)
 
-    else:                                                       # Audio
+    # AUDIO
+    else:
         stream = yt.streams.filter(abr=variable.get()).first()
         stream.download(get_directory)
 
@@ -214,8 +211,11 @@ Label(root, text='Download YouTube videos for free', font='san-serif 14').place(
 link = StringVar()
 
 Label(root, text="Paste your link here", font='san-serif 17 bold').place(x=280, y=90)
-Entry(root, width=90, textvariable=link).place(x=130, y=130)  # Link Entry
 
+# Link Entry
+ent = Entry(root, width=90, textvariable=link)
+ent.place(x=130, y=130)
+ent.focus() # Select entry when the program opens
 
 # Paste_link() run when paste the link
 variable = StringVar(root)
@@ -228,6 +228,10 @@ video_title.place(x=10, y=200)
 # Thumbnail Label
 thumbnail = tk.Label(width=320, height=240)
 thumbnail.place(x=10, y=250)
+
+# Channel Name Label
+channel = tk.Label(root, text="", font="san-serif 14")
+channel.place(x=10, y=500)
 
 # Set default variable and trace each menu select
 #variable.trace("w", callback)
