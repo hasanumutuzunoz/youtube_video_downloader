@@ -1,3 +1,12 @@
+"""
+THINGS TO DO
+* Create OOP version
+* Create grids instead of paste for all objects
+* Add Pause, Stop, download buttons
+* Add download speed
+
+"""
+
 import io
 import shutil
 import tkinter as tk
@@ -14,16 +23,9 @@ import re
 import os
 import threading
 
-"""
-THINGS TO DO
-* Create grids instead of paste for all objects
-* Add Pause, Stop, download buttons
-"""
-
 # Global Variables
 percentage_of_completion = 0
 get_video = False
-#yt = None
 
 
 # PASTE LINK function - start loading_thread
@@ -91,6 +93,7 @@ def loading_thread():
         menu = OptionMenu(root, variable, *streams)
         menu.place(x=500, y=330)
 
+
         # PLACE BUTTON (Download)
         Button(root, text='Download', font='san-serif 16 bold', bg='grey', padx=2, command=download).place(x=480, y=500)
 
@@ -115,11 +118,10 @@ def processing_pb_thread(path):
 def download_thread():
     # Erase other labels
     downloaded_label.place_forget()
-
+    yt.register_on_progress_callback(on_progress)  # On Progress Function
 
     print("Download thread started")
     #yt = YouTube(str(link.get()))                               # Capture the link (url) and locate it from YouTube
-    yt.register_on_progress_callback(on_progress)               # On Progress Function
     #downloads_folder = os.path.join(os.path.join(os.environ['USERPROFILE']), 'Downloads')  # get downloads folder path
     get_directory = os.getcwd()  # Get current directory folder
     print(yt.streams)
@@ -129,12 +131,13 @@ def download_thread():
     if get_video:
         value_label.config(text="")
         stream = yt.streams.filter(res=variable.get()).first()  # Filter selected resolution from menu variable
+        print(stream.filesize_mb)
         print("Download thread stream filtered ")
         title = yt.streams.first().title                        # Get video title
-        res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
+        #res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
 
-                # if res > 720:, Combine video and audio files into one file
-                # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
+        # if res > 720:, Combine video and audio files into one file
+        # Save it into C:/Users/"USERNAME"/Videos/"VIDEO TITLE".mp4
 
         stream.download(filename="video.mp4")                   # download video stream
         video = ffmpeg.input("video.mp4")                       # video file input
@@ -148,6 +151,7 @@ def download_thread():
         pb.place_forget()
 
         # Place indeterminate progress bar for combining video
+
         value_label.config(text="Processing final video...")
         pb_indeterminate.config(length=280)
         pb_indeterminate.place(x=400, y=420)
@@ -198,7 +202,10 @@ def on_progress(stream, chunk, bytes_remaining):
     pb['value'] = percentage_of_completion
 
     # Update current progress percentage
-    value_label.config(text=f"Current Progress: %.2f" % percentage_of_completion + "%")
+    value_label.config(text=f"Current Progress: %i" % percentage_of_completion + "%")
+
+  
+
     root.update()
 
 
