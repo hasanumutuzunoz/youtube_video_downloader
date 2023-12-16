@@ -81,11 +81,25 @@ def loading_thread():
         global get_video
         if is_video:                                            # Set Video menu
             streams = [stream.resolution for stream in          # Get stream resolutions and remove None values
-                       yt.streams.filter(adaptive=True, file_extension='mp4', type='video')
+                       yt.streams.filter(type='video')
                        if stream.resolution is not None]
             # streams = [stream for stream in yt.streams.filter(adaptive=True, file_extension='mp4', type='video')]
-            streams = list(dict.fromkeys(streams))              # Remove the duplicates
+            #streams = list(dict.fromkeys(streams))              # Remove the duplicates
+
+            # Sort the resolutions
+            def custom_sort(value):
+                # Extract the numeric part until the character 'p'
+                numeric_part = ''.join(c for c in value if c.isdigit() or c == 'p')
+                numeric_value = int(''.join(c for c in numeric_part if c.isdigit())) if numeric_part else 0
+
+                return numeric_value
+
+            streams = sorted(set(streams), key=custom_sort, reverse=True)                      # Remove duplicates and sorts the resolutions in ascending order.
+
             print(streams)
+            for resolution in streams:
+                print(f"Resolution: {resolution}, Data Type: {type(resolution).__name__}")
+
             variable.set("Select Video")
             get_video = True
 
