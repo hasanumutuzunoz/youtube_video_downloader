@@ -1,10 +1,12 @@
 """
 THINGS TO DO
+* fix percentage bar to 0 when paste link and click download
+global percentage_of_completion value change to 0
+
 * Create OOP version
 * Create grids instead of paste for all objects
 * Add Pause, Stop, download buttons
 * Add download speed
-
 """
 
 import io
@@ -35,13 +37,17 @@ def paste_link(a):
     #desktop = desktop + "\last_video.mp4"
     #path = re.sub(r'\\', '/', desktop)
     #print(path)
+
+    #percentage_of_completion = 0
     loading = threading.Thread(target=loading_thread, daemon=True)
     loading.start()
 
 
 # Run with paste link
 def loading_thread():
-    global yt
+    global yt, percentage_of_completion
+
+    percentage_of_completion = 0
 
     # Erase other labels
     downloaded_label.place_forget()
@@ -53,7 +59,7 @@ def loading_thread():
     pb_indeterminate.place(x=200, y=550)
     pb_indeterminate.start()
 
-    yt = YouTube(str(link.get()))
+    yt = YouTube(str(link.get()), use_oauth=True, allow_oauth_cache=True)
 
     # Set the video title
     # Configurate the label (not place)
@@ -115,6 +121,13 @@ def processing_pb_thread(path):
         print(file_stats)
 
 
+# Function to sanitize the video title
+def sanitize_title(title):
+    invalid_chars = r'<>:"/\|?*'
+    sanitized_title = ''.join(char if char not in invalid_chars else '_' for char in title)
+    return sanitized_title
+
+
 def download_thread():
     # Erase other labels
     downloaded_label.place_forget()
@@ -134,6 +147,7 @@ def download_thread():
         print(stream.filesize_mb)
         print("Download thread stream filtered ")
         title = yt.streams.first().title                        # Get video title
+        sanitized_title = sanitize_title(title)
         #res = int(re.sub(r'p', '', variable.get()))             # Remove "p" and convert to int (e.g. 1080p to 1080)
 
         # if res > 720:, Combine video and audio files into one file
@@ -144,7 +158,7 @@ def download_thread():
         audio_stream = yt.streams.filter(only_audio=True).first()  # get audio stream
         audio_stream.download(filename="audio.wav")             # download audio stream
         audio = ffmpeg.input("audio.wav")                       # audio stream input
-        file = get_directory + "\\" + title + ".mp4"         # video file path in videos
+        file = get_directory + "\\" + sanitized_title + ".mp4"         # video file path in videos
         path = re.sub(r'\\', '/', file)                         # change \ to / in path
 
         # Remove the progress bar
@@ -162,6 +176,10 @@ def download_thread():
 
         # COMBINE AUDIO AND VIDEO
         ffmpeg.output(audio, video, path, vcodec='copy', acodec='copy').run(overwrite_output=True)
+
+        # Remove the individual audio and video files
+        os.remove("audio.wav")
+        os.remove("video.mp4")
 
         pb_indeterminate.place_forget()  # Remove processing progress bar
 
@@ -204,7 +222,7 @@ def on_progress(stream, chunk, bytes_remaining):
     # Update current progress percentage
     value_label.config(text=f"Current Progress: %i" % percentage_of_completion + "%")
 
-  
+
 
     root.update()
 
